@@ -20,52 +20,70 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module TOP(A,B,ALUop,Y,Less,Overflow);
+module TOP(A,B,ALUop,Shift,Y,Less,Overflow,ZERO);
 input [31:0] A,B;
-input [3:0] ALUop;
+input [3:0] ALUop;                          //{x,x,ALUop[1:0]}
+input [4:0] Shift;
+output ZERO;
 output reg [31:0] Y;
-output reg [31:0] Less;
-output reg Overflow;
+output reg [31:0] Less;                    //SLT
+output reg Overflow;                       //Overflow
 
-wire [31:0] C;
-wire Overflow1;
+wire [31:0] C,SL,SR;
+wire Overflow1,sub;
 
-ADD_32 ADD(A,B,ALUop[2],C,Overflow1);
+assign sub = (ALUop[3]|ALUop[1])?1:0;
+ADD_32 ADD(A,B,sub,C,Overflow1);       //CLA_32bits
+Shift Sft(A,Shift,ALUop[3],SR,SL);
 
 always@(*) begin
-    case(ALUop[1:0]) 
-        2'b00:
+    case(ALUop[2:0])
+        2'b000:                              //ADD
             begin
-                if(ALUop[3])
-                    Y <= ~A&~B;
-                else
-                    Y <= A&B;
+                Y <= C;
+                Less <= 32'bx;
+                Overflow <= Overflow1;
+            end
+        2'b001:                              //sll
+            begin
+                Y <= SL;
                 Less <= 32'bx;
                 Overflow <= 1'bx;
             end
-        2'b01:
+        2'b010:                              //slt
+            begin
+                Y <= 32'bx;
+                Less <= {31'b0,C[31]};
+                Overflow <= 1'bx;
+            end
+        3'b100:                              //XOR
+            begin
+                Y <= A^B;
+                Less <= 32'bx;
+                Overflow <= 1'bx;
+            end
+        3'b101:                              //slr&sra
+            begin
+                Y <= SR;
+                Less <= 32'bx;
+                Overflow <= 1'bx;
+            end
+        3'b110:                              //OR
             begin
                 Y <= A|B;
                 Less <= 32'bx;
                 Overflow <= 1'bx;
             end
-        2'b10://add or sub
+        3'b111:                              //AND
             begin
-                //ADD_32 ADD(A,B,ALUop[2],Y,Overflow);
-                Y <= C;
+                Y <= A&B;
                 Less <= 32'bx;
-                Overflow <= Overflow1;
-            end
-        2'b11:
-            begin
-                //ADD_32 SLT(A,B,ALUop[2],Less);
-                Y <= 32'bx;
-                Less <= {30'b0,C[31]};
                 Overflow <= 1'bx;
             end
     endcase
-end
+end 
 
+assign ZERO = (C)?0:1;
 
 
 endmodule
